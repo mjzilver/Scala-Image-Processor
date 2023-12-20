@@ -64,7 +64,6 @@ def makeWriteableImage(image: FIFImage): WritableImage =
 
 def rotateImage(image: FIFImage, clockwise: Boolean = true): FIFImage =
   Array.tabulate(image.width, image.height) { (x, y) =>
-    val (red, green, blue) = image(y)(x)
     if clockwise then
       image(image.height - y - 1)(x)
     else
