@@ -3,18 +3,22 @@ package scimg.gui
 import scalafx.application.JFXApp3
 import scalafx.geometry.Insets
 import scalafx.geometry.Pos
+
 import scalafx.scene.Scene
-import scalafx.scene.effect.DropShadow
 import scalafx.scene.paint.*
 import scalafx.scene.paint.Color.*
-import scalafx.scene.text.Text
-import scalafx.scene.image.{Image, ImageView}
+import scalafx.scene.text.{Font, FontWeight, Text}
+import scalafx.scene.image.{Image, ImageView, WritableImage}
 import scalafx.scene.layout.{HBox, VBox}
-import scalafx.scene.text.Font
 import scalafx.scene.control.{Button, Tooltip, Label}
+import scalafx.scene.control.{Slider, ComboBox}
+
+import scalafx.collections.ObservableBuffer
 import scalafx.util.Duration
 
 import scala.language.implicitConversions
+
+import scimg.processing.*
 
 object MainWindow extends JFXApp3:
   val imageSize = 256
@@ -26,27 +30,56 @@ object MainWindow extends JFXApp3:
   // tooltip delay in milliseconds
   val customTooltipShowDelay = 100
 
+  var chosenColor: FIFcolor = FIFcolor.Red
+
+  var currentImage: FIFImage = _
+
   override def start(): Unit =
-    val imagePath = "/images/img6.png"  
-    val image = new Image(getClass.getResourceAsStream(imagePath))
-    val imageView = new ImageView(image) {
+    val imagePath = "/images/img1.png"  
+
+    // Your custom image loading and conversion functions
+    currentImage = importImage(imagePath)
+
+    val imageView = new ImageView(makeWriteableImage(currentImage)) {
       fitWidth = imageSize.toDouble
       fitHeight = imageSize.toDouble
       alignmentInParent = Pos.Center
     }
   
     val selectImageBtn = createTextButton("Open", "Select New Image", () => {
-        // to do open file dialog and load image into imageView
-        print("Open")
+        currentImage = shuffleImage(currentImage)
+        imageView.image = makeWriteableImage(currentImage)
     })
     val rotateClockwiseBtn = createTextButton("Clockwise", "Rotate 90° Clockwise", () => {
-        // to do rotate image 90° clockwise
-        print("Clockwise")
+        currentImage = rotateImage(currentImage)
+        imageView.image = makeWriteableImage(currentImage)
     })
     val rotateCounterClockwiseBtn = createTextButton("Anticlockwise", "Rotate 90° Counterclockwise", () => {
-       // to do rotate image 90° counterclockwise
-       print("Anticlockwise")
+        currentImage = rotateImage(currentImage, false)
+        imageView.image = makeWriteableImage(currentImage)
     })
+
+    val colorAdjustmentSlider = new Slider(0, 255, 0) {
+      prefWidth = 256
+      showTickLabels = true
+      showTickMarks = true
+      majorTickUnit = 64
+      minorTickCount = 4
+      blockIncrement = 1
+      snapToTicks = true
+      value.onChange { (_, _, newValue) =>
+        currentImage = scimg.processing.adjustColor(currentImage, newValue.intValue, chosenColor)
+        imageView.image = makeWriteableImage(currentImage)
+      }
+    }
+
+    val colorSelectionComboBox = new ComboBox[FIFcolor] {
+      items = ObservableBuffer(FIFcolor.Red, FIFcolor.Green, FIFcolor.Blue)
+      value = FIFcolor.Red
+      value.onChange { (_, _, newValue) =>
+        chosenColor = newValue
+      }
+    }
 
     stage = new JFXApp3.PrimaryStage:
       title = "ScImg Processing"
@@ -64,7 +97,7 @@ object MainWindow extends JFXApp3:
                 new HBox:
                     alignment = Pos.Center
                     spacing = 10
-                    children = Seq(selectImageBtn, rotateClockwiseBtn, rotateCounterClockwiseBtn)
+                    children = Seq(selectImageBtn, rotateClockwiseBtn, rotateCounterClockwiseBtn, colorAdjustmentSlider, colorSelectionComboBox)
             )
       
   private def createTextButton(emoji: String, tooltipText: String, action: () => Unit): Button =
