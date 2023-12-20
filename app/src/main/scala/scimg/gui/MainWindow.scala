@@ -12,6 +12,8 @@ import scalafx.scene.image.{Image, ImageView, WritableImage}
 import scalafx.scene.layout.{HBox, VBox}
 import scalafx.scene.control.{Button, Tooltip, Label}
 import scalafx.scene.control.{Slider, ComboBox}
+import scalafx.stage.FileChooser
+import scalafx.stage.FileChooser.ExtensionFilter
 
 import scalafx.collections.ObservableBuffer
 import scalafx.util.Duration
@@ -21,7 +23,7 @@ import scala.language.implicitConversions
 import scimg.processing.*
 
 object MainWindow extends JFXApp3:
-  val imageSize = 256
+  val imageSize = 516
   val insetSize = 20
 
   val windowWidth = imageSize + 2 * insetSize
@@ -47,13 +49,29 @@ object MainWindow extends JFXApp3:
     }
   
     val selectImageBtn = createTextButton("Open", "Select New Image", () => {
+        val fileChooser = new FileChooser {
+          title = "Select Image"
+          extensionFilters.addAll(
+            new ExtensionFilter("Images", Seq("*.png", "*.jpg", "*.gif"))         
+          )
+        }
+        
+        val selectedFile = fileChooser.showOpenDialog(stage)
+        if selectedFile != null then
+          currentImage = importImage(selectedFile.toURI.getPath)
+          imageView.image = makeWriteableImage(currentImage)
+    })
+
+    val shuffleBtn = createTextButton("Shuffle", "Shuffle the parts", () => {
         currentImage = shuffleImage(currentImage)
         imageView.image = makeWriteableImage(currentImage)
     })
+
     val rotateClockwiseBtn = createTextButton("Clockwise", "Rotate 90° Clockwise", () => {
         currentImage = rotateImage(currentImage)
         imageView.image = makeWriteableImage(currentImage)
     })
+
     val rotateCounterClockwiseBtn = createTextButton("Anticlockwise", "Rotate 90° Counterclockwise", () => {
         currentImage = rotateImage(currentImage, false)
         imageView.image = makeWriteableImage(currentImage)
@@ -97,7 +115,7 @@ object MainWindow extends JFXApp3:
                 new HBox:
                     alignment = Pos.Center
                     spacing = 10
-                    children = Seq(selectImageBtn, rotateClockwiseBtn, rotateCounterClockwiseBtn, colorAdjustmentSlider, colorSelectionComboBox)
+                    children = Seq(selectImageBtn, shuffleBtn, rotateClockwiseBtn, rotateCounterClockwiseBtn, colorAdjustmentSlider, colorSelectionComboBox)
             )
       
   private def createTextButton(emoji: String, tooltipText: String, action: () => Unit): Button =

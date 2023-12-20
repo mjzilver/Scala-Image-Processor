@@ -4,6 +4,7 @@ import scalafx.scene.image.{Image, ImageView, WritableImage, PixelWriter}
 import javax.imageio.ImageIO
 import scala.compiletime.ops.boolean
 import scala.util.Random
+import java.io.File
 
 // FIF stands for Functional Image Format
 // my own image format for image processing in Scala 
@@ -15,7 +16,12 @@ enum FIFcolor:
   case Red, Green, Blue
 
 def importImage(imagePath: String): FIFImage =
-  val image = ImageIO.read(getClass.getResourceAsStream(imagePath))
+  val file = new File(imagePath)
+  val image = if (file.exists()) 
+    ImageIO.read(file)
+  else 
+    ImageIO.read(getClass.getResourceAsStream(imagePath))
+
   val width = image.getWidth
   val height = image.getHeight
   val pixels = Array.ofDim[FIFPixel](height, width)
