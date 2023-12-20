@@ -23,11 +23,11 @@ import scala.language.implicitConversions
 import scimg.processing.*
 
 object MainWindow extends JFXApp3:
-  val imageSize = 516
+  val imageSize = 800
   val insetSize = 20
 
-  val windowWidth = imageSize + 2 * insetSize
-  val windowHeight = imageSize + 2 * insetSize
+  val windowWidth = imageSize 
+  val windowHeight = imageSize + (insetSize * 3)
 
   // tooltip delay in milliseconds
   val customTooltipShowDelay = 100
@@ -37,7 +37,7 @@ object MainWindow extends JFXApp3:
   var currentImage: FIFImage = _
 
   override def start(): Unit =
-    val imagePath = "/images/img1.png"  
+    val imagePath = "/images/img6.png"  
 
     currentImage = importImage(imagePath)
 

@@ -52,6 +52,7 @@ def importImage(imagePath: String): FIFImage =
 def makeWriteableImage(image: FIFImage): WritableImage =
   val writableImage = new WritableImage(image.width, image.height)
   val pixelWriter = writableImage.getPixelWriter
+
   for
     y <- 0 until image.height
     x <- 0 until image.width
@@ -101,53 +102,38 @@ def pixelateImage(image: FIFImage): FIFImage =
   }
 
 def shuffleImage(image: FIFImage): FIFImage =
-  val width = image(0).length
-  val height = image.length
-  val shuffledImage = Array.ofDim[FIFPixel](height, width)
-
   // calculate the block size
-  val blockSize = width / 8
+  val blockSize = image.width / 8
 
-  // create a list of all blocks
-  var blocks: Array[Array[FIFImage]] = Array.ofDim(height / blockSize, width / blockSize)
+  // slice the image into blocks of blockSize x blockSize
+  val blocks = (for {
+    blockStartY <- 0 until image.height by blockSize
+    blockStartX <- 0 until image.width by blockSize
+  } yield {
+    val blockEndY = math.min(blockStartY + blockSize, image.height)
+    val blockEndX = math.min(blockStartX + blockSize, image.width)
 
-  // fill the list with the blocks
-  for
-    blockStartY <- 0 until height by blockSize
-    blockStartX <- 0 until width by blockSize
-  do
-    val blockEndY = math.min(blockStartY + blockSize, height)
-    val blockEndX = math.min(blockStartX + blockSize, width)
+    image.slice(blockStartY, blockEndY).map(_.slice(blockStartX, blockEndX))
+  })
+
+  // shuffle the blocks 
+  val shuffledBlocks = Random.shuffle(blocks)
+
+  // assign the shuffled blocks to the image
+  Array.tabulate(image.height, image.width) { (y, x) =>
+    val blockStartY = y / blockSize
+    val blockStartX = x / blockSize
+
+    val blockEndY = math.min(blockStartY + blockSize, image.height)
+    val blockEndX = math.min(blockStartX + blockSize, image.width)
 
     val blockWidth = blockEndX - blockStartX
     val blockHeight = blockEndY - blockStartY
 
-    val block = Array.ofDim[FIFPixel](blockHeight, blockWidth)
+    val block = shuffledBlocks(blockStartY * (image.width / blockSize) + blockStartX)
 
-    for
-      y <- blockStartY until blockEndY
-      x <- blockStartX until blockEndX
-    do
-      block(y - blockStartY)(x - blockStartX) = image(y)(x)
-    
-    blocks(blockStartY / blockSize)(blockStartX / blockSize) = block
-
-  // put the 4d array into a 2d array
-  val shuffledBlocks = Random.shuffle(blocks.flatten)
-
-  // assign the shuffled blocks back to the shuffledImage
-  for
-    (block, i) <- shuffledBlocks.zipWithIndex 
-    blockStartY = i / (width / blockSize) * blockSize
-    blockStartX = i % (width / blockSize) * blockSize
-  do
-    for
-      y <- blockStartY until blockStartY + blockSize
-      x <- blockStartX until blockStartX + blockSize
-    do
-      shuffledImage(y)(x) = block(y - blockStartY)(x - blockStartX)
-    
-  shuffledImage
+    block(y % blockHeight)(x % blockWidth)
+  }
 
 def adjustColor(image: FIFImage, adjustment: Int, chosenColor: FIFcolor = FIFcolor.Red): FIFImage = {
   Array.tabulate(image.height, image.width) { (y, x) =>
