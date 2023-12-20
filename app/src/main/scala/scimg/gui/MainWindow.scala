@@ -39,7 +39,6 @@ object MainWindow extends JFXApp3:
   override def start(): Unit =
     val imagePath = "/images/img1.png"  
 
-    // Your custom image loading and conversion functions
     currentImage = importImage(imagePath)
 
     val imageView = new ImageView(makeWriteableImage(currentImage)) {
@@ -62,6 +61,11 @@ object MainWindow extends JFXApp3:
           imageView.image = makeWriteableImage(currentImage)
     })
 
+    val pixelBtn = createTextButton("Pixelate", "Pixelate the image", () => {
+        currentImage = pixelateImage(currentImage)
+        imageView.image = makeWriteableImage(currentImage)
+    })
+
     val shuffleBtn = createTextButton("Shuffle", "Shuffle the parts", () => {
         currentImage = shuffleImage(currentImage)
         imageView.image = makeWriteableImage(currentImage)
@@ -78,7 +82,7 @@ object MainWindow extends JFXApp3:
     })
 
     val colorAdjustmentSlider = new Slider(0, 255, 0) {
-      prefWidth = 256
+      prefWidth = 256 / 2
       showTickLabels = true
       showTickMarks = true
       majorTickUnit = 64
@@ -106,7 +110,6 @@ object MainWindow extends JFXApp3:
       scene = new Scene:
         root = new VBox:
             alignment = Pos.Center
-            padding = Insets(insetSize)
             children = Seq(
                 new HBox:
                     alignment = Pos.Center
@@ -115,7 +118,15 @@ object MainWindow extends JFXApp3:
                 new HBox:
                     alignment = Pos.Center
                     spacing = 10
-                    children = Seq(selectImageBtn, shuffleBtn, rotateClockwiseBtn, rotateCounterClockwiseBtn, colorAdjustmentSlider, colorSelectionComboBox)
+                    children = Seq(
+                      selectImageBtn, 
+                      shuffleBtn, 
+                      pixelBtn,
+                      rotateClockwiseBtn, 
+                      rotateCounterClockwiseBtn, 
+                      colorAdjustmentSlider, 
+                      colorSelectionComboBox
+                    )
             )
       
   private def createTextButton(emoji: String, tooltipText: String, action: () => Unit): Button =

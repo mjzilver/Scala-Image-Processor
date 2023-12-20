@@ -11,39 +11,50 @@ import java.io.File
 // (so it doesnt conflict with JavaFX Image class)
 type FIFPixel = (Int, Int, Int)
 type FIFImage = Array[Array[FIFPixel]]
+// image is indexed by y, x
+
+extension (image: FIFImage)
+  def width: Int = image.headOption.map(_.length).getOrElse(0)
+  def height: Int = image.length
+
 
 enum FIFcolor:
   case Red, Green, Blue
 
 def importImage(imagePath: String): FIFImage =
-  val file = new File(imagePath)
-  val image = if (file.exists()) 
-    ImageIO.read(file)
-  else 
-    ImageIO.read(getClass.getResourceAsStream(imagePath))
+  try {
+    val file = new File(imagePath)
+    val image = if (file.exists()) 
+      ImageIO.read(file)
+    else 
+      ImageIO.read(getClass.getResourceAsStream(imagePath))
 
-  val width = image.getWidth
-  val height = image.getHeight
-  val pixels = Array.ofDim[FIFPixel](height, width)
-  for
-    y <- 0 until height
-    x <- 0 until width
-  do
-    val rgb = image.getRGB(x, y)
-    val red = (rgb >> 16) & 0xFF
-    val green = (rgb >> 8) & 0xFF
-    val blue = rgb & 0xFF
-    pixels(y)(x) = (red, green, blue)
-  pixels
+    val width = image.getWidth
+    val height = image.getHeight
+    val pixels = Array.ofDim[FIFPixel](height, width)
+    for
+      y <- 0 until height
+      x <- 0 until width
+    do
+      val rgb = image.getRGB(x, y)
+      val red = (rgb >> 16) & 0xFF
+      val green = (rgb >> 8) & 0xFF
+      val blue = rgb & 0xFF
+      pixels(y)(x) = (red, green, blue)
+
+    pixels
+  } catch {
+    case e: Exception =>
+      println(s"Error importing image: ${e.getMessage}")
+      Array.ofDim[FIFPixel](0, 0)
+  }
 
 def makeWriteableImage(image: FIFImage): WritableImage =
-  val width = image(0).length
-  val height = image.length
-  val writableImage = new WritableImage(width, height)
+  val writableImage = new WritableImage(image.width, image.height)
   val pixelWriter = writableImage.getPixelWriter
   for
-    y <- 0 until height
-    x <- 0 until width
+    y <- 0 until image.height
+    x <- 0 until image.width
   do
     val (red, green, blue) = image(y)(x)
     val argb = (0xFF << 24) | (red << 16) | (green << 8) | blue
@@ -51,53 +62,43 @@ def makeWriteableImage(image: FIFImage): WritableImage =
   writableImage
 
 def rotateImage(image: FIFImage, clockwise: Boolean = true): FIFImage =
-  val width = image(0).length
-  val height = image.length
-  val rotatedImage = Array.ofDim[FIFPixel](width, height)
-  for
-    y <- 0 until height
-    x <- 0 until width
-  do
+  Array.tabulate(image.width, image.height) { (x, y) =>
     val (red, green, blue) = image(y)(x)
     if clockwise then
-      rotatedImage(x)(height - y - 1) = (red, green, blue)
+      image(image.height - y - 1)(x)
     else
-      rotatedImage(width - x - 1)(y) = (red, green, blue)
-  rotatedImage
+      image(y)(image.width - x - 1)
+  }
 
-def pixelateImage(image: FIFImage, blockSize: Int = 10): FIFImage =
-  val width = image(0).length
-  val height = image.length
-  val shuffledImage = Array.ofDim[FIFPixel](height, width)
+def pixelateImage(image: FIFImage): FIFImage = 
+  val blockSize = image.width / 64
 
-  for
-    blockStartY <- 0 until height by blockSize
-    blockStartX <- 0 until width by blockSize
-  do
-    val blockEndY = math.min(blockStartY + blockSize, height)
-    val blockEndX = math.min(blockStartX + blockSize, width)
+  Array.tabulate(image.height, image.width) { (y, x) =>
+    val blockStartY = (y / blockSize) * blockSize
+    val blockStartX = (x / blockSize) * blockSize
+
+    val blockEndY = math.min(blockStartY + blockSize, image.height)
+    val blockEndX = math.min(blockStartX + blockSize, image.width)
 
     val blockWidth = blockEndX - blockStartX
     val blockHeight = blockEndY - blockStartY
 
     // Create a list of all pixels in the current block
-    val blockPixels = for
-      y <- blockStartY until blockEndY
-      x <- blockStartX until blockEndX
-    yield image(y)(x)
+    val blockPixels = for {
+      blockY <- blockStartY until blockEndY
+      blockX <- blockStartX until blockEndX
+    } yield image(blockY)(blockX)
 
     // Shuffle the list of pixels
     val shuffledBlockPixels = Random.shuffle(blockPixels)
 
-    // Assign the shuffled pixels back to the shuffledImage
-    for
-      (pixel, i) <- shuffledBlockPixels.zipWithIndex
-      y = blockStartY + i / blockWidth
-      x = blockStartX + i % blockWidth
-    do
-      shuffledImage(y)(x) = pixel
+    // Calculate the position in the original image
+    val originalY = blockStartY + (y % blockSize)
+    val originalX = blockStartX + (x % blockSize)
 
-  shuffledImage
+    // Return the pixel to be placed in the shuffledImage
+    shuffledBlockPixels(originalY % blockHeight * blockWidth + originalX % blockWidth)
+  }
 
 def shuffleImage(image: FIFImage): FIFImage =
   val width = image(0).length
@@ -148,19 +149,14 @@ def shuffleImage(image: FIFImage): FIFImage =
     
   shuffledImage
 
-def adjustColor(image: FIFImage, adjustment: Int, chosenColor: FIFcolor = FIFcolor.Red): FIFImage =
-  val width = image(0).length
-  val height = image.length
-  val adjustedImage = Array.ofDim[FIFPixel](height, width)
-
-  for
-    y <- 0 until height
-    x <- 0 until width
-  do
+def adjustColor(image: FIFImage, adjustment: Int, chosenColor: FIFcolor = FIFcolor.Red): FIFImage = {
+  Array.tabulate(image.height, image.width) { (y, x) =>
     val (red, green, blue) = image(y)(x)
-    
-    val newRed = if chosenColor == FIFcolor.Red then red + adjustment else red
-    val newGreen = if chosenColor == FIFcolor.Green then green + adjustment else green
-    val newBlue = if chosenColor == FIFcolor.Blue then blue + adjustment else blue
-    adjustedImage(y)(x) = (newRed, newGreen, newBlue)
-  adjustedImage
+
+    val newRed = if (chosenColor == FIFcolor.Red) red + adjustment else red
+    val newGreen = if (chosenColor == FIFcolor.Green) green + adjustment else green
+    val newBlue = if (chosenColor == FIFcolor.Blue) blue + adjustment else blue
+
+    (newRed, newGreen, newBlue)
+  }
+}
