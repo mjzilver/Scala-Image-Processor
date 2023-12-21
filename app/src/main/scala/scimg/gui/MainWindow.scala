@@ -4,6 +4,8 @@ import scalafx.application.JFXApp3
 import scalafx.geometry.Insets
 import scalafx.geometry.Pos
 
+import javafx.concurrent as jfxc
+
 import scalafx.scene.Scene
 import scalafx.scene.paint.*
 import scalafx.scene.paint.Color.*
@@ -11,18 +13,22 @@ import scalafx.scene.text.{Font, FontWeight, Text}
 import scalafx.scene.image.{Image, ImageView, WritableImage}
 import scalafx.scene.layout.{HBox, VBox}
 import scalafx.scene.control.{Button, Tooltip, Label}
-import scalafx.scene.control.{Slider, ComboBox}
+import scalafx.scene.control.{Slider, ComboBox, ProgressBar}
+import scalafx.scene.control.Control
 import scalafx.stage.FileChooser
 import scalafx.stage.FileChooser.ExtensionFilter
 
 import scalafx.collections.ObservableBuffer
 import scalafx.util.Duration
 
+import scalafx.application.Platform
+import scalafx.concurrent.Task
+
 import scala.language.implicitConversions
 
 import scimg.processing.*
 
-object MainWindow extends JFXApp3:
+object MainWindow extends JFXApp3 {
   val imageSize = 800
   val insetSize = 20
 
@@ -35,19 +41,23 @@ object MainWindow extends JFXApp3:
   var chosenColor: FIFcolor = FIFcolor.Red
 
   var currentImage: FIFImage = _
+  var imageView: ImageView = _
+
+  var controls: Seq[Control] = Seq()
+  var progressBar: ProgressBar = _
 
   override def start(): Unit =
     val imagePath = "/images/img6.png"  
 
     currentImage = importImage(imagePath)
 
-    val imageView = new ImageView(makeWriteableImage(currentImage)) {
+    imageView = new ImageView(makeWriteableImage(currentImage)) {
       fitWidth = imageSize.toDouble
       fitHeight = imageSize.toDouble
       alignmentInParent = Pos.Center
     }
   
-    val selectImageBtn = createTextButton("Open", "Select New Image", () => {
+    controls = controls :+ createTextButton("Open", "Select New Image", () => {
         val fileChooser = new FileChooser {
           title = "Select Image"
           extensionFilters.addAll(
@@ -57,31 +67,33 @@ object MainWindow extends JFXApp3:
         
         val selectedFile = fileChooser.showOpenDialog(stage)
         if selectedFile != null then
-          currentImage = importImage(selectedFile.toURI.getPath)
-          imageView.image = makeWriteableImage(currentImage)
+          switchImage(importImage(selectedFile.toURI.getPath))
     })
 
-    val pixelBtn = createTextButton("Pixelate", "Pixelate the image", () => {
-        currentImage = pixelateImage(currentImage)
-        imageView.image = makeWriteableImage(currentImage)
+    controls = controls :+ createTextButton("Pixelate", "Pixelate the image", () => {
+      performImageProcessing(() => pixelateImage(currentImage))
     })
 
-    val shuffleBtn = createTextButton("Shuffle", "Shuffle the parts", () => {
-        currentImage = shuffleImage(currentImage)
-        imageView.image = makeWriteableImage(currentImage)
+    controls = controls :+ createTextButton("Shuffle", "Shuffle the parts", () => {
+      performImageProcessing(() => shuffleImage(currentImage))
     })
 
-    val rotateClockwiseBtn = createTextButton("Clockwise", "Rotate 90° Clockwise", () => {
-        currentImage = rotateImage(currentImage)
-        imageView.image = makeWriteableImage(currentImage)
+    controls = controls :+ createTextButton("Clockwise", "Rotate 90° Clockwise", () => {
+      performImageProcessing(() => rotateImage(currentImage, true))
     })
 
-    val rotateCounterClockwiseBtn = createTextButton("Anticlockwise", "Rotate 90° Counterclockwise", () => {
-        currentImage = rotateImage(currentImage, false)
-        imageView.image = makeWriteableImage(currentImage)
+    controls = controls :+ createTextButton("Anticlockwise", "Rotate 90° Counterclockwise", () => {
+      performImageProcessing(() => rotateImage(currentImage, false))
     })
 
-    val colorAdjustmentSlider = new Slider(0, 255, 0) {
+    progressBar = new ProgressBar {
+      prefWidth = 256
+      progress = 0.0
+    }
+
+    controls = controls :+ progressBar
+
+    controls = controls :+ new Slider(0, 255, 0) {
       prefWidth = 256 / 2
       showTickLabels = true
       showTickMarks = true
@@ -90,12 +102,11 @@ object MainWindow extends JFXApp3:
       blockIncrement = 1
       snapToTicks = true
       value.onChange { (_, _, newValue) =>
-        currentImage = scimg.processing.adjustColor(currentImage, newValue.intValue, chosenColor)
-        imageView.image = makeWriteableImage(currentImage)
+        performImageProcessing(() => adjustColor(currentImage, newValue.intValue, chosenColor))
       }
     }
 
-    val colorSelectionComboBox = new ComboBox[FIFcolor] {
+    controls = controls :+ new ComboBox[FIFcolor] {
       items = ObservableBuffer(FIFcolor.Red, FIFcolor.Green, FIFcolor.Blue)
       value = FIFcolor.Red
       value.onChange { (_, _, newValue) =>
@@ -118,17 +129,13 @@ object MainWindow extends JFXApp3:
                 new HBox:
                     alignment = Pos.Center
                     spacing = 10
-                    children = Seq(
-                      selectImageBtn, 
-                      shuffleBtn, 
-                      pixelBtn,
-                      rotateClockwiseBtn, 
-                      rotateCounterClockwiseBtn, 
-                      colorAdjustmentSlider, 
-                      colorSelectionComboBox
-                    )
+                    children = controls
             )
       
+  private def switchImage(image: FIFImage): Unit =
+    currentImage = image
+    imageView.image = makeWriteableImage(currentImage)
+
   private def createTextButton(emoji: String, tooltipText: String, action: () => Unit): Button =
     new Button { 
       text = emoji
@@ -137,3 +144,21 @@ object MainWindow extends JFXApp3:
       }
       onAction = _ => action()
     }
+
+  private def performImageProcessing(processFunction: () => FIFImage): Unit = {
+    object ImageProcessingTask extends Task(new jfxc.Task[FIFImage] {
+      override def call(): FIFImage = processFunction()})
+
+    val imageProcessingTask = ImageProcessingTask.asInstanceOf[Task[FIFImage]]
+
+    progressBar.progressProperty.bind(imageProcessingTask.progressProperty)
+
+    imageProcessingTask.setOnSucceeded(_ => Platform.runLater(() => {
+      progressBar.progressProperty.unbind()
+      progressBar.progress = 0.0
+      switchImage(imageProcessingTask.getValue)
+    }))
+
+    new Thread(imageProcessingTask).start()
+  }
+}

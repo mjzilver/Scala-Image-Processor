@@ -17,7 +17,6 @@ extension (image: FIFImage)
   def width: Int = image.headOption.map(_.length).getOrElse(0)
   def height: Int = image.length
 
-
 enum FIFcolor:
   case Red, Green, Blue
 
