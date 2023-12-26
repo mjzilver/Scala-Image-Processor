@@ -27,6 +27,7 @@ import scalafx.concurrent.Task
 import scala.language.implicitConversions
 
 import scimg.processing.*
+import scimg.processing.commands.*
 
 object MainWindow extends JFXApp3 {
   val imageSize = 800
@@ -79,7 +80,7 @@ object MainWindow extends JFXApp3 {
     })
 
     controls = controls :+ createTextButton("Clockwise", "Rotate 90° Clockwise", () => {
-      performImageProcessing(() => rotateImage(currentImage, true))
+      performImageProcessing(() => rotateImage(currentImage))
     })
 
     controls = controls :+ createTextButton("Anticlockwise", "Rotate 90° Counterclockwise", () => {
