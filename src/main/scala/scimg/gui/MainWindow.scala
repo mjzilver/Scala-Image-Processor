@@ -30,6 +30,7 @@ import scimg.processing.commands.*
 import scalafx.Includes.jfxMouseEvent2sfx
 import scimg.gui.FileMenu.createOpenMenuItem
 import scimg.gui.performImageProcessing
+import scimg.gui.createBrushMenu
 
 object MainWindow extends JFXApp3 {
   val imageSize = 600
@@ -74,63 +75,13 @@ object MainWindow extends JFXApp3 {
       progress = 0.0
     }
 
-    val imageProcessingFunction = performImageProcessing(_, Some(progressBar))
+    val imageProcessingFunction = performImageProcessing(_, progressBar)
 
-    val effectsMenu = new Menu("Effects") {
-      items = Seq(
-        new MenuItem("Pixelate") {
-          onAction = _ => imageProcessingFunction(() => pixelateImage(currentImage))
-        },
-        new MenuItem("Shuffle") {
-          onAction = _ => imageProcessingFunction(() => shuffleImage(currentImage))
-        },
-        new MenuItem("Clockwise") {
-          onAction = _ => imageProcessingFunction(() => rotateImage(currentImage))
-        },
-        new MenuItem("Anticlockwise") {
-          onAction = _ => imageProcessingFunction(() => rotateImage(currentImage, false))
-        }
-      )
-    }
+    val effectsMenu = createEffectsMenu(() => currentImage, imageProcessingFunction, switchImage)
 
-    val brushMenu = new Menu("Brush") {
-      items = Seq(
-        new Menu("Brush Size") {
-          items = Seq(
-            new CustomMenuItem {
-              content = new Slider(1, 50, currentBrush.size) {
-                showTickLabels = true
-                showTickMarks = true
-                majorTickUnit = 10
-                minorTickCount = 1
-                blockIncrement = 1
-                snapToTicks = true
-                hideOnClick = false
-                value.onChange { (_, _, newValue) =>
-                  currentBrush = Brush(newValue.intValue, currentBrush.color)
-                }
-              }
-            }
-          )
-        },
-        new Menu("RGB Color") {
-          items = Seq(
-            new CustomMenuItem {
-              hideOnClick = false
-              content = createColorSlider("Red", currentBrush.color._1)
-            },
-            new CustomMenuItem {
-              hideOnClick = false
-              content = createColorSlider("Green", currentBrush.color._2)
-            },
-            new CustomMenuItem {
-              hideOnClick = false
-              content = createColorSlider("Blue", currentBrush.color._3)
-            }
-          )
-        }
-      )
-    }
+    val brushMenu = createBrushMenu(() => currentBrush, (newBrush: Brush) => {
+      currentBrush = newBrush
+    })
 
     val fileMenu = new Menu("File") {
       items = Seq(createOpenMenuItem())
@@ -203,7 +154,7 @@ object MainWindow extends JFXApp3 {
     val imageX = x * currentImage.head.length / imageSize
     val imageY = y * currentImage.length / imageSize
 
-    performImageProcessing(() => paintWithBrush(currentImage, currentBrush, imageX, imageY), None)
+    performImageProcessing(() => paintWithBrush(currentImage, currentBrush, imageX, imageY), progressBar)
   }
 
   def createTextButton(emoji: String, tooltipText: String, action: () => Unit): Button =
@@ -214,33 +165,4 @@ object MainWindow extends JFXApp3 {
       }
       onAction = _ => action()
     }
-
-  def createColorSlider(colorName: String, initialValue: Int): VBox = {
-    new VBox {
-      val label = new Label(colorName) {
-        font = Font.font(null, FontWeight.Bold, 12)
-      }
-
-      val slider = new Slider(0, 255, initialValue) {
-        prefWidth = 256 / 3
-        showTickLabels = true
-        showTickMarks = true
-        majorTickUnit = 64
-        minorTickCount = 4
-        blockIncrement = 1
-        snapToTicks = true
-
-        value.onChange { (_, _, newValue) =>
-          val updatedColor = colorName match {
-            case "Red"   => (newValue.intValue, currentBrush.color._2, currentBrush.color._3)
-            case "Green" => (currentBrush.color._1, newValue.intValue, currentBrush.color._3)
-            case "Blue"  => (currentBrush.color._1, currentBrush.color._2, newValue.intValue)
-          }
-          currentBrush = Brush(currentBrush.size, updatedColor)
-        }
-      }
-
-      children = Seq(label, slider)
-    }
-  }
 }

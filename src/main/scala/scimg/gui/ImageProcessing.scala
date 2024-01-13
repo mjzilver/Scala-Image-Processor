@@ -1,34 +1,33 @@
 package scimg.gui
 
-import javafx.concurrent as jfxc
-
-import scalafx.application.Platform
 import scalafx.concurrent.Task
+import scalafx.application.Platform
+import scalafx.scene.control.ProgressBar
+
+import javafx.concurrent as jfxc
 
 import scala.language.implicitConversions
 
 import scimg.processing.*
-import scalafx.scene.control.ProgressBar
 import scimg.gui.MainWindow.switchImage
 
-def performImageProcessing(processFunction: () => FIFImage, progressBar: Option[ProgressBar] = None): Unit = {
+import scalafx.Includes.jfxTask2sfxTask // convert javafx.concurrent.Task to scalafx.concurrent.Task
+
+def performImageProcessing(processFunction: () => FIFImage, progressBar: ProgressBar): Task[FIFImage] = {
   val imageProcessingTask = new jfxc.Task[FIFImage] {
     override def call(): FIFImage = processFunction()
   }
 
-  progressBar.foreach { pb =>
-    pb.progressProperty.bind(imageProcessingTask.progressProperty)
-  }
-
+  progressBar.progressProperty.bind(imageProcessingTask.progressProperty)
+  
   imageProcessingTask.setOnSucceeded(_ =>
     Platform.runLater { () =>
-      progressBar.foreach { pb =>
-        pb.progressProperty.unbind()
-        pb.progress = 0.0
-      }
+      progressBar.progressProperty.unbind()
+      progressBar.progress = 0
       switchImage(imageProcessingTask.getValue)
     }
   )
 
   new Thread(imageProcessingTask).start()
+  imageProcessingTask
 }
