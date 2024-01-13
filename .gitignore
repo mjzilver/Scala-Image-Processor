@@ -12,3 +12,5 @@ app/bin/
 .metals/
 
 .bsp/
+
+.bloop

@@ -1,0 +1,54 @@
+.root {
+    -fx-font-family: 'Arial', sans-serif;
+    font-family: 'Arial', sans-serif;
+    -fx-font-size: 14px;
+    font-size: 14px;
+}
+
+.menu {
+    -fx-text-fill: #333333;
+}
+
+.menu-item {
+    -fx-text-fill: #333333;
+}
+
+.button {
+    -fx-font-size: 14px;
+    font-size: 14px;
+    -fx-background-color: #4CAF50;
+    background-color: #4CAF50;
+    -fx-text-fill: white;
+}
+
+.button:hover {
+    -fx-background-color: #45a049;
+    background-color: #45a049;
+}
+
+.slider {
+    -fx-control-inner-background: #f0f0f0;
+    -fx-text-fill: black;
+}
+
+.sider .track {
+    -fx-control-inner-background: #f0f0f0;
+    -fx-text-fill: black;
+}
+
+.slider .axis {
+    -fx-tick-label-fill: black;
+}
+
+.combo-box {
+    -fx-control-inner-background: #f0f0f0;
+    -fx-text-fill: black;
+}
+
+.progress-bar {
+    -fx-accent: #4CAF50;
+}
+
+.label {
+    -fx-text-fill: #333333;
+}

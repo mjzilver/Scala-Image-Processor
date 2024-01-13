@@ -6,32 +6,30 @@ import scala.compiletime.ops.boolean
 import scala.util.Random
 import java.io.File
 
-def importImage(imagePath: String): FIFImage =
-  try {
+import scala.util.Try
+
+def importImage(imagePath: String): Option[FIFImage] =
+  Try {
     val file = new File(imagePath)
-    val image = if (file.exists()) 
+    if (file.exists()) 
       ImageIO.read(file)
     else 
-      ImageIO.read(getClass.getResourceAsStream(imagePath))
-
-    val width = image.getWidth
-    val height = image.getHeight
+      ImageIO.read(this.getClass.getResourceAsStream(imagePath))
+  }.toOption.map { image =>
+    val width = image.getWidth.toInt
+    val height = image.getHeight.toInt
     val pixels = Array.ofDim[FIFPixel](height, width)
-    for
+    for {
       y <- 0 until height
       x <- 0 until width
-    do
+    } {
       val rgb = image.getRGB(x, y)
       val red = (rgb >> 16) & 0xFF
       val green = (rgb >> 8) & 0xFF
       val blue = rgb & 0xFF
       pixels(y)(x) = (red, green, blue)
-
+    }
     pixels
-  } catch {
-    case e: Exception =>
-      println(s"Error importing image: ${e.getMessage}")
-      Array.ofDim[FIFPixel](0, 0)
   }
 
 def makeWriteableImage(image: FIFImage): WritableImage =
@@ -42,7 +40,13 @@ def makeWriteableImage(image: FIFImage): WritableImage =
     y <- 0 until image.height
     x <- 0 until image.width
   do
-    val (red, green, blue) = image(y)(x)
-    val argb = (0xFF << 24) | (red << 16) | (green << 8) | blue
-    pixelWriter.setArgb(x, y, argb)
+    val pixel = image(y)(x)
+    if (pixel != null) {
+      val (red, green, blue) = pixel
+      val argb = (0xFF << 24) | (red << 16) | (green << 8) | blue
+      pixelWriter.setArgb(x, y, argb)
+    } else {
+      println(s"Unexpected null pixel at ($x, $y)")
+    }
+
   writableImage
