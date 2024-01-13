@@ -2,11 +2,11 @@ package scimg.processing
 
 import scalafx.scene.image.{Image, ImageView, WritableImage, PixelWriter}
 import javax.imageio.ImageIO
-import scala.compiletime.ops.boolean
 import scala.util.Random
 import java.io.File
 
 import scala.util.Try
+import java.awt.image.BufferedImage
 
 def importImage(imagePath: String): Option[FIFImage] =
   Try {
@@ -31,6 +31,20 @@ def importImage(imagePath: String): Option[FIFImage] =
     }
     pixels
   }
+
+def exportImage(image: FIFImage, imagePath: String): Unit =
+  val width = image.head.length
+  val height = image.length
+  val bufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+  for {
+    y <- 0 until height
+    x <- 0 until width
+  } {
+    val (red, green, blue) = image(y)(x)
+    val rgb = (red << 16) | (green << 8) | blue
+    bufferedImage.setRGB(x, y, rgb)
+  }
+  ImageIO.write(bufferedImage, imagePath.split('.').last, new File(imagePath))
 
 def makeWriteableImage(image: FIFImage): WritableImage =
   val writableImage = new WritableImage(image.width, image.height)

@@ -28,7 +28,7 @@ import scala.language.implicitConversions
 import scimg.processing.*
 import scimg.processing.commands.*
 import scalafx.Includes.jfxMouseEvent2sfx
-import scimg.gui.FileMenu.createOpenMenuItem
+import scimg.gui.createFileMenu
 import scimg.gui.performImageProcessing
 import scimg.gui.createBrushMenu
 
@@ -48,10 +48,6 @@ object MainWindow extends JFXApp3 {
 
   var controls: Seq[Control] = Seq()
   var progressBar: ProgressBar = _
-  var brushSizeSlider: Slider = _
-  var redSlider: Slider = _
-  var greenSlider: Slider = _
-  var blueSlider: Slider = _
 
   override def start(): Unit = {
     val imagePath = "/images/img6.png"
@@ -83,9 +79,7 @@ object MainWindow extends JFXApp3 {
       currentBrush = newBrush
     })
 
-    val fileMenu = new Menu("File") {
-      items = Seq(createOpenMenuItem())
-    }
+    val fileMenu = createFileMenu(() => currentImage, switchImage)
 
     val menuBar = new MenuBar {
       menus = Seq(fileMenu, brushMenu, effectsMenu)
