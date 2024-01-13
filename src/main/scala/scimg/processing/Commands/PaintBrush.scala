@@ -4,7 +4,7 @@ import scimg.processing.*
 
 case class Brush(size: Int, color: FIFPixel)
 
-def paintBrush(image: FIFImage, brush: Brush, centerX: Int, centerY: Int): FIFImage = {
+def paintWithBrush(image: FIFImage, brush: Brush, centerX: Int, centerY: Int): FIFImage = {
   val radiusSquared = brush.size * brush.size
 
   for {

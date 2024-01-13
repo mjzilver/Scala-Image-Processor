@@ -11,10 +11,9 @@ import scalafx.scene.paint.*
 import scalafx.scene.paint.Color.*
 import scalafx.scene.text.{Font, FontWeight, Text}
 import scalafx.scene.image.{Image, ImageView, WritableImage}
-import scalafx.scene.layout.{HBox, VBox}
-import scalafx.scene.control.{Button, Label, Tooltip}
-import scalafx.scene.control.{ComboBox, ProgressBar, Slider}
-import scalafx.scene.control.Control
+import scalafx.scene.layout.{HBox, Priority, VBox}
+import scalafx.scene.control.*
+import scalafx.scene.input.MouseEvent
 import scalafx.stage.FileChooser
 import scalafx.stage.FileChooser.ExtensionFilter
 
@@ -28,13 +27,9 @@ import scala.language.implicitConversions
 
 import scimg.processing.*
 import scimg.processing.commands.*
-import scalafx.scene.layout.Priority
 import scalafx.Includes.jfxMouseEvent2sfx
-import scalafx.scene.input.MouseEvent
-import scalafx.scene.control.MenuBar
-import scalafx.scene.control.MenuItem
-import scalafx.scene.control.Menu
-import scalafx.scene.control.CustomMenuItem
+import scimg.gui.FileMenu.createOpenMenuItem
+import scimg.gui.performImageProcessing
 
 object MainWindow extends JFXApp3 {
   val imageSize = 600
@@ -52,7 +47,6 @@ object MainWindow extends JFXApp3 {
 
   var controls: Seq[Control] = Seq()
   var progressBar: ProgressBar = _
-
   var brushSizeSlider: Slider = _
   var redSlider: Slider = _
   var greenSlider: Slider = _
@@ -60,11 +54,12 @@ object MainWindow extends JFXApp3 {
 
   override def start(): Unit = {
     val imagePath = "/images/img6.png"
-    importImage(imagePath) match
+    importImage(imagePath) match {
       case Some(image) =>
         currentImage = image
       case None =>
         println("Image not found!")
+    }
 
     imageView = new ImageView(makeWriteableImage(currentImage)) {
       fitWidth = imageSize.toDouble
@@ -74,22 +69,26 @@ object MainWindow extends JFXApp3 {
       onMousePressed = mouseBrushEvent
     }
 
+    progressBar = new ProgressBar {
+      prefWidth = 256
+      progress = 0.0
+    }
+
+    val imageProcessingFunction = performImageProcessing(_, Some(progressBar))
+
     val effectsMenu = new Menu("Effects") {
       items = Seq(
         new MenuItem("Pixelate") {
-          onAction = _ => performImageProcessing(() => pixelateImage(currentImage))
+          onAction = _ => imageProcessingFunction(() => pixelateImage(currentImage))
         },
         new MenuItem("Shuffle") {
-          onAction = _ => performImageProcessing(() => shuffleImage(currentImage))
+          onAction = _ => imageProcessingFunction(() => shuffleImage(currentImage))
         },
         new MenuItem("Clockwise") {
-          onAction = _ => performImageProcessing(() => rotateImage(currentImage))
+          onAction = _ => imageProcessingFunction(() => rotateImage(currentImage))
         },
         new MenuItem("Anticlockwise") {
-          onAction = _ => performImageProcessing(() => rotateImage(currentImage, false))
-        },
-        new MenuItem("Adjust Color") {
-          onAction = _ => performImageProcessing(() => adjustColor(currentImage, 128, chosenColor))
+          onAction = _ => imageProcessingFunction(() => rotateImage(currentImage, false))
         }
       )
     }
@@ -133,34 +132,12 @@ object MainWindow extends JFXApp3 {
       )
     }
 
-    val menuBar = new MenuBar {
-      menus = Seq(effectsMenu, brushMenu)
+    val fileMenu = new Menu("File") {
+      items = Seq(createOpenMenuItem())
     }
 
-    controls = controls :+ createTextButton(
-      "Open",
-      "Select New Image",
-      () => {
-        val fileChooser = new FileChooser {
-          title = "Select Image"
-          extensionFilters.addAll(
-            new ExtensionFilter("Images", Seq("*.png", "*.jpg", "*.gif"))
-          )
-        }
-
-        val selectedFile = fileChooser.showOpenDialog(stage)
-        if selectedFile != null then
-          importImage(selectedFile.toURI.getPath) match
-            case Some(image) =>
-              switchImage(image)
-            case None =>
-              println("Image not found!")
-      }
-    )
-
-    progressBar = new ProgressBar {
-      prefWidth = 256
-      progress = 0.0
+    val menuBar = new MenuBar {
+      menus = Seq(fileMenu, brushMenu, effectsMenu)
     }
 
     controls = controls :+ progressBar
@@ -174,7 +151,7 @@ object MainWindow extends JFXApp3 {
       blockIncrement = 1
       snapToTicks = true
       value.onChange { (_, _, newValue) =>
-        performImageProcessing(() => adjustColor(currentImage, newValue.intValue, chosenColor))
+        imageProcessingFunction(() => adjustColor(currentImage, newValue.intValue, chosenColor))
       }
     }
 
@@ -186,35 +163,39 @@ object MainWindow extends JFXApp3 {
       }
     }
 
-    stage = new JFXApp3.PrimaryStage:
+    stage = new JFXApp3.PrimaryStage {
       title = "ScImg Processing"
       width = windowWidth
-      scene = new Scene:
+      scene = new Scene {
         stylesheets = Seq("/styles.css")
-        root = new VBox:
+        root = new VBox {
           alignment = Pos.TopCenter
           children = Seq(
             menuBar,
-            new HBox:
+            new HBox {
               alignment = Pos.TopCenter
               hgrow = Priority.Always
               children = Seq(imageView)
-            ,
-            new HBox:
-              alignment = Pos.BottomCenter
+            },
+            new HBox {
+              alignment = Pos.Center
               padding = Insets(10)
               spacing = 10
               hgrow = Priority.Always
               children = controls
+            }
           )
-
+        }
+      }
+    }
   }
 
-  private def switchImage(image: FIFImage): Unit =
+  def switchImage(image: FIFImage): Unit = {
     currentImage = image
     imageView.image = makeWriteableImage(currentImage)
+  }
 
-  private def mouseBrushEvent(event: MouseEvent): Unit = {
+  def mouseBrushEvent(event: MouseEvent): Unit = {
     val x = event.x.toInt
     val y = event.y.toInt
 
@@ -222,10 +203,10 @@ object MainWindow extends JFXApp3 {
     val imageX = x * currentImage.head.length / imageSize
     val imageY = y * currentImage.length / imageSize
 
-    performImageProcessing(() => paintBrush(currentImage, currentBrush, imageX, imageY))
+    performImageProcessing(() => paintWithBrush(currentImage, currentBrush, imageX, imageY), None)
   }
 
-  private def createTextButton(emoji: String, tooltipText: String, action: () => Unit): Button =
+  def createTextButton(emoji: String, tooltipText: String, action: () => Unit): Button =
     new Button {
       text = emoji
       tooltip = new Tooltip(tooltipText) {
@@ -234,11 +215,10 @@ object MainWindow extends JFXApp3 {
       onAction = _ => action()
     }
 
-  private def createColorSlider(colorName: String, initialValue: Int): VBox = {
+  def createColorSlider(colorName: String, initialValue: Int): VBox = {
     new VBox {
       val label = new Label(colorName) {
         font = Font.font(null, FontWeight.Bold, 12)
-        textFill = Color.web("#555555")
       }
 
       val slider = new Slider(0, 255, initialValue) {
@@ -262,26 +242,5 @@ object MainWindow extends JFXApp3 {
 
       children = Seq(label, slider)
     }
-  }
-
-  private def performImageProcessing(processFunction: () => FIFImage): Unit = {
-    object ImageProcessingTask
-        extends Task(new jfxc.Task[FIFImage] {
-          override def call(): FIFImage = processFunction()
-        })
-
-    val imageProcessingTask = ImageProcessingTask.asInstanceOf[Task[FIFImage]]
-
-    progressBar.progressProperty.bind(imageProcessingTask.progressProperty)
-
-    imageProcessingTask.setOnSucceeded(_ =>
-      Platform.runLater { () =>
-        progressBar.progressProperty.unbind()
-        progressBar.progress = 0.0
-        switchImage(imageProcessingTask.getValue)
-      }
-    )
-
-    new Thread(imageProcessingTask).start()
   }
 }
