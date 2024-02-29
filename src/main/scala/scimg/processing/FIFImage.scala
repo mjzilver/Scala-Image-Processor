@@ -1,11 +1,13 @@
 package scimg.processing
 
 // FIF stands for Functional Image Format
-// my own image format for image processing in Scala 
-// (so it doesnt conflict with JavaFX Image class)
+// FIFPixel is a tuple of (r, g, b) values
 type FIFPixel = (Int, Int, Int)
+// FIFImage is a 2D array of pixels
 type FIFImage = Array[Array[FIFPixel]]
-// image is indexed by y, x
+
+// constructor for FIFImage with a given width and height
+def newFIFImage(width: Int, height: Int): FIFImage = Array.fill(height, width)((0, 0, 0))
 
 extension (image: FIFImage)
   def width: Int = image.headOption.map(_.length).getOrElse(0)
