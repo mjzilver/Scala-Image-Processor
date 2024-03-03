@@ -16,6 +16,12 @@ import scalafx.scene.control.Alert
 import scalafx.scene.control.ButtonType
 import scalafx.scene.control.Alert.AlertType
 import scimg.processing.commands.ImageCombinationOperations._
+import scimg.processing.commands.resizeImage
+import scalafx.scene.layout.{GridPane, HBox}
+import scalafx.geometry.Insets
+import scalafx.scene.control.{Label, TextField}
+import scalafx.scene.control.ControlIncludes.jfxDialogPane2sfx
+
 
 def createFileMenu(
   getImage: () => FIFImage,
@@ -25,7 +31,8 @@ def createFileMenu(
     items = Seq(
       openFileMenuItem(),
       combineFileMenuItem(getImage),
-      exportImageMenuItem(getImage)
+      exportImageMenuItem(getImage),
+      resizeImageMenuItem(getImage)
     )
   }
 
@@ -128,6 +135,39 @@ def combineFileMenuItem(getImage: () => FIFImage): MenuItem =
         } else if (result.contains(RightShiftButton)) {
           switchImage(combineImages(getImage(), image.get, RightShift))
         }
+      }
+    }
+  }
+
+def resizeImageMenuItem(getImage: () => FIFImage): MenuItem =
+  new MenuItem("Resize") {
+    onAction = _ => {
+      // let the user set the new dimensions in one dialog
+      val grid = new GridPane {
+        hgap = 10
+        vgap = 10
+        padding = Insets(10, 10, 10, 10)
+
+        add(new Label("Width:"), 0, 0)
+        add(new Label("Height:"), 0, 1)
+        add(new TextField, 1, 0)
+        add(new TextField, 1, 1)
+      }
+
+      val confirmationDialog = new Alert(AlertType.Confirmation) {
+        title = "Resize Image"
+        headerText = "Set new dimensions"
+        contentText = "Enter the new dimensions for the image"
+        dialogPane().content = grid
+        buttonTypes = Seq(ButtonType.OK, ButtonType.Cancel)
+      }
+
+      val result = confirmationDialog.showAndWait()
+
+      if (result.contains(ButtonType.OK)) {
+        val width = grid.children(2).asInstanceOf[TextField].text.value.toInt
+        val height = grid.children(3).asInstanceOf[TextField].text.value.toInt
+        switchImage(resizeImage(getImage(), (width, height)))
       }
     }
   }
